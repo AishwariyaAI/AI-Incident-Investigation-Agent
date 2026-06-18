@@ -1,12 +1,13 @@
-def get_severity(score):
+def classify_severity(score):
 
-    if score >= 0.95:
-        return "CRITICAL"
+    if score < 0.30:
+        return "LOW"
 
-    elif score >= 0.85:
-        return "HIGH"
-
-    elif score >= 0.70:
+    elif score < 0.50:
         return "MEDIUM"
 
-    return "LOW"
+    elif score < 0.70:
+        return "HIGH"
+
+    else:
+        return "CRITICAL"

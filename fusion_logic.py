@@ -1,27 +1,17 @@
-import numpy as np
+def fuse_scores(sensor_scores, image_scores, log_scores):
 
-def fuse_modalities(
-    sensor_scores,
-    image_scores,
-    log_scores,
-    method="weighted",
-    weights=(0.4, 0.4, 0.2)
-):
-    sensor_scores = np.array(sensor_scores)
-    image_scores = np.array(image_scores)
-    log_scores = np.array(log_scores)
+    fused = []
 
-    if method == "weighted":
-        w_s, w_i, w_l = weights
-        return w_s * sensor_scores + w_i * image_scores + w_l * log_scores
+    max_len = max(len(sensor_scores), len(image_scores), len(log_scores))
 
-    elif method == "mean":
-        return (sensor_scores + image_scores + log_scores) / 3.0
+    for i in range(max_len):
 
-    elif method == "max":
-        return np.maximum.reduce([sensor_scores, image_scores, log_scores])
+        s = sensor_scores[i] if i < len(sensor_scores) else 0
+        im = image_scores[i] if i < len(image_scores) else 0
+        l = log_scores[i] if i < len(log_scores) else 0
 
-    else:
-        raise ValueError(f"Unknown fusion method: {method}")
+        score = (0.4 * s) + (0.3 * im) + (0.3 * l)
 
+        fused.append(score)
 
+    return fused

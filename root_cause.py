@@ -1,21 +1,9 @@
-def root_cause_analysis(
-    sensor_score,
-    image_score,
-    log_score
-):
+def analyze_root_cause(sensor_values):
 
-    scores = {
-        "Sensor": sensor_score,
-        "Image": image_score,
-        "Log": log_score
-    }
+    if max(sensor_values) > 9000:
+        return ["High turbine pressure detected"]
 
-    dominant = max(
-        scores,
-        key=scores.get
-    )
+    if sensor_values[0] < 520:
+        return ["Low inlet pressure anomaly"]
 
-    return {
-        "root_cause": dominant,
-        "scores": scores
-    }
+    return ["No significant root cause detected"]
