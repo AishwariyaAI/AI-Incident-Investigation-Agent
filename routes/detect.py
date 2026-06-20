@@ -1,128 +1,104 @@
 from fastapi import APIRouter, Depends
-
-from schemas.request import InputData
-from severity import classify_severity
-from utils.alerts import generate_alert
-from services.notifier import manager
-from database.crud import create_incident
 from utils.security import get_current_user
-from root_cause import analyze_root_cause
+from services.sensor_predictor import predict_sensor
+from models.schemas import SensorInput
+
+from database.db import SessionLocal
+from database.models import Incident
 
 router = APIRouter()
 
 
-@router.post("/detect")
-async def detect(
-    data: InputData,
-    user: str = Depends(get_current_user)
-):
+# ==========================================
+# SEVERITY MAPPING
+# ==========================================
+def map_severity(prediction, confidence):
 
-    # ===================================
-    # REALISTIC NASA ANOMALY SCORE
-    # ===================================
+    if prediction == 2:
+        return "CRITICAL 🔴"
 
-    sensors = data.sensor_values
+    elif prediction == 1:
+        return "HIGH 🟠"
 
-    normalized = []
-
-    for value in sensors:
-
-        score = abs(value)
-
-        if score > 1000:
-            score = score / 10000
-
-        elif score > 100:
-            score = score / 1000
-
-        else:
-            score = score / 100
-
-        normalized.append(score)
-
-    sensor_score = sum(normalized) / len(normalized)
-
-    if sensor_score > 1:
-        sensor_score = 1.0
-
-    # ===================================
-    # PREDICTION
-    # ===================================
-
-    prediction = 1 if sensor_score > 0.55 else 0
-
-    # ===================================
-    # SEVERITY
-    # ===================================
-
-    severity = classify_severity(sensor_score)
-
-    # ===================================
-    # ROOT CAUSE
-    # ===================================
-
-    root_causes = analyze_root_cause(sensors)
-
-    # ===================================
-    # AUTO INCIDENT LIFECYCLE
-    # ===================================
-
-    if severity == "LOW":
-        auto_status = "OPEN"
-
-    elif severity == "MEDIUM":
-        auto_status = "ACK"
-
-    elif severity == "HIGH":
-        auto_status = "RESOLVED"
+    elif confidence > 0.85:
+        return "MEDIUM 🟡"
 
     else:
-        auto_status = "RESOLVED"
+        return "LOW 🟢"
 
-    # ===================================
-    # SAVE INCIDENT
-    # ===================================
 
-    create_incident(
-        score=sensor_score,
-        prediction=prediction,
-        severity=severity,
-        status=auto_status
+# ==========================================
+# ROOT CAUSE ANALYSIS
+# ==========================================
+def get_root_cause(severity):
+
+    if "CRITICAL" in severity:
+        return "High turbine pressure detected"
+
+    elif "HIGH" in severity:
+        return "Abnormal vibration detected"
+
+    elif "MEDIUM" in severity:
+        return "Sensor drift detected"
+
+    else:
+        return "System operating normally"
+
+
+# ==========================================
+# DETECT INCIDENT
+# ==========================================
+@router.post("/detect")
+def detect(
+    data: SensorInput,
+    user=Depends(get_current_user)
+):
+
+    prediction, confidence, anomaly_score = predict_sensor(
+        data.sensor_values
     )
 
-    # ===================================
-    # INCIDENT REPORT
-    # ===================================
+    print("Prediction:", prediction)
+    print("Confidence:", confidence)
+    print("Anomaly Score:", anomaly_score)
 
-    report = {
-        "incident_id": 0,
-        "score": round(sensor_score, 4),
-        "prediction": prediction,
-        "severity": severity,
-        "status": auto_status
-    }
+    severity = map_severity(
+        prediction,
+        confidence
+    )
 
-    # ===================================
-    # ALERT
-    # ===================================
+    root_cause = get_root_cause(
+        severity
+    )
 
-    alert = generate_alert(severity)
+    db = SessionLocal()
 
-    await manager.send_alert({
-        "type": "INCIDENT_ALERT",
-        "severity": severity,
-        "message": alert
-    })
+    incident = Incident(
+        engine_id=getattr(data, "engine_id", 1),
+        cycle=getattr(data, "cycle", 1),
+        prediction=int(prediction),
+        confidence=float(confidence),
+        anomaly_score=float(anomaly_score),
+        severity=severity,
+        status="OPEN"
+    )
 
-    # ===================================
-    # RESPONSE
-    # ===================================
+    db.add(incident)
+    db.commit()
+    db.refresh(incident)
+
+    incident_id = incident.id
+
+    db.close()
 
     return {
-        "sensor_score": round(sensor_score, 4),
-        "prediction": prediction,
+        "user": user,
+        "incident_id": incident_id,
+        "prediction": int(prediction),
+        "confidence": float(confidence),
+        "anomaly_score": float(anomaly_score),
         "severity": severity,
-        "root_causes": root_causes,
-        "incident_report": report,
-        "alert": alert
+        "root_cause": root_cause,
+        "status": "OPEN",
+        "alert": f"{severity} INCIDENT DETECTED"
     }

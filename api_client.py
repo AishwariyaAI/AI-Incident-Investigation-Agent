@@ -1,6 +1,6 @@
 import requests
 
-API_URL = "http://127.0.0.1:8001/detect"
+API_URL = "http://127.0.0.1:8000/detect"
 
 def get_predictions():
 

@@ -1,20 +1,20 @@
 import joblib
+import numpy as np
 
-model = joblib.load(
-    "models/sensor_model.pkl"
-)
+model = joblib.load("ml/model.pkl")
+scaler = joblib.load("ml/scaler.pkl")
 
-def predict_sensor_score(sensor_values):
 
-    score = model.decision_function(
-        [sensor_values]
-    )[0]
+def predict_sensor(sensor_values):
+    X = np.array(sensor_values).reshape(1, -1)
 
-    normalized = 1 - (
-        (score + 0.5) / 1.0
-    )
+    X_scaled = scaler.transform(X)
 
-    return round(
-        max(0, min(1, normalized)),
-        3
-    )
+    prediction = model.predict(X_scaled)[0]
+
+    probabilities = model.predict_proba(X_scaled)[0]
+
+    confidence = float(max(probabilities))
+    anomaly_score = float(probabilities[prediction])
+
+    return prediction, confidence, anomaly_score

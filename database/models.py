@@ -1,21 +1,17 @@
-from sqlalchemy import Column, Integer, Float, String, DateTime
 from database.db import Base
-import datetime
+from sqlalchemy import Column, Integer, Float, String
 
 class Incident(Base):
     __tablename__ = "incidents"
 
     id = Column(Integer, primary_key=True, index=True)
 
-    score = Column(Float)
+    engine_id = Column(Integer)
+    cycle = Column(Integer)
 
     prediction = Column(Integer)
+    confidence = Column(Float)
+    anomaly_score = Column(Float)
 
     severity = Column(String)
-
     status = Column(String)
-
-    timestamp = Column(
-        DateTime,
-        default=datetime.datetime.utcnow
-    )

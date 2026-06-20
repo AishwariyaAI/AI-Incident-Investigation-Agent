@@ -4,8 +4,7 @@ from database.user_crud import (
     create_user,
     get_user
 )
-
-SECRET_KEY = "supersecretkey"
+SECRET_KEY = "dev123"
 
 
 def register_user(

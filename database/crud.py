@@ -1,16 +1,27 @@
 from database.db import SessionLocal
 from database.models import Incident
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-# ----------------------------
-# CREATE INCIDENT
-# ----------------------------
-def create_incident(score, prediction, severity, status="OPEN"):
+
+def create_incident(
+    score,
+    confidence,
+    prediction,
+    severity,
+    status="OPEN"
+):
 
     db = SessionLocal()
 
     incident = Incident(
         score=score,
+        confidence=confidence,
         prediction=prediction,
         severity=severity,
         status=status
@@ -25,28 +36,34 @@ def create_incident(score, prediction, severity, status="OPEN"):
     return incident
 
 
-# ----------------------------
-# GET ALL INCIDENTS
-# ----------------------------
-def get_incidents():
+def get_incidents(db):
+
+    incidents = db.query(Incident).all()
+
+    return [
+        {
+            "id": i.id,
+            "engine_id": i.engine_id,
+            "cycle": i.cycle,
+            "severity": i.severity,
+            "status": i.status,
+            "confidence": i.confidence,
+            "anomaly_score": i.anomaly_score
+        }
+        for i in incidents
+    ]
+
+
+def update_incident_status(
+    incident_id,
+    status
+):
 
     db = SessionLocal()
 
-    data = db.query(Incident).all()
-
-    db.close()
-
-    return data
-
-
-# ----------------------------
-# UPDATE STATUS (LIFECYCLE)
-# ----------------------------
-def update_incident_status(incident_id, status):
-
-    db = SessionLocal()
-
-    incident = db.query(Incident).filter(
+    incident = db.query(
+        Incident
+    ).filter(
         Incident.id == incident_id
     ).first()
 

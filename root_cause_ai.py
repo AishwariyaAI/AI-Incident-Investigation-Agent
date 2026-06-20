@@ -17,27 +17,28 @@ client = Groq(
 # -----------------------
 # ROOT CAUSE ANALYZER
 # -----------------------
-def analyze_root_cause(incident):
+def analyze_root_cause(sensor_values):
 
-    prompt = f"""
-    You are a senior Site Reliability Engineer (SRE).
+    causes = []
 
-    Analyze this incident:
+    if sensor_values[11] > 9040:
+        causes.append(
+            "High turbine pressure"
+        )
 
-    {incident}
+    if sensor_values[16] > 8120:
+        causes.append(
+            "Compressor efficiency degradation"
+        )
 
-    Provide:
-    1. Root Cause
-    2. Risk Level
-    3. Fix Recommendation
-    4. Prevention Strategy
-    """
+    if sensor_values[4] > 642:
+        causes.append(
+            "Engine temperature abnormal"
+        )
 
-    response = client.chat.completions.create(
-        model="llama-3.1-70b-versatile",
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
-    )
+    if not causes:
+        causes.append(
+            "No significant anomaly detected"
+        )
 
-    return response.choices[0].message.content
+    return causes

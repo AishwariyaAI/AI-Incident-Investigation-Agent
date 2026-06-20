@@ -1,12 +1,12 @@
-def classify_severity(score):
+def classify_severity(confidence):
 
-    if score < 0.30:
+    if confidence < 0.25:
         return "LOW"
 
-    elif score < 0.50:
+    elif confidence < 0.50:
         return "MEDIUM"
 
-    elif score < 0.70:
+    elif confidence < 0.75:
         return "HIGH"
 
     else:

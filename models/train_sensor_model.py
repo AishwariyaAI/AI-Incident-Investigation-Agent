@@ -1,35 +1,48 @@
 import pandas as pd
 import joblib
 
-from sklearn.ensemble import IsolationForest
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
 
-cols = (
-    ["engine_id", "cycle"]
-    + [f"op{i}" for i in range(1,4)]
-    + [f"s{i}" for i in range(1,22)]
-)
-
+# NASA train data
 df = pd.read_csv(
     "data/train_FD001.txt",
     sep=r"\s+",
     header=None
 )
 
-df = df.iloc[:, :26]
-df.columns = cols
+df = df.dropna(axis=1)
 
-X = df[[f"s{i}" for i in range(1,22)]]
+# NASA sensors
+X = df.iloc[:, 2:26]
 
-model = IsolationForest(
-    contamination=0.05,
+# Simple anomaly label
+threshold = X.mean(axis=1)
+
+y = (threshold > threshold.median()).astype(int)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
     random_state=42
 )
 
-model.fit(X)
+model = RandomForestClassifier(
+    n_estimators=100,
+    random_state=42
+)
+
+model.fit(X_train, y_train)
+
+print(
+    "Accuracy:",
+    model.score(X_test, y_test)
+)
 
 joblib.dump(
     model,
     "models/sensor_model.pkl"
 )
 
-print("Model Trained")
+print("Model Saved")

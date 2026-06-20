@@ -4,261 +4,396 @@ import requests
 import plotly.express as px
 import plotly.graph_objects as go
 
-# ==================================================
-# CONFIG
-# ==================================================
+API_URL = "http://127.0.0.1:8000/api/v1"
+
 st.set_page_config(
     page_title="AI Incident Monitoring Center",
     layout="wide"
 )
 
-API_URL = "http://127.0.0.1:8001/api/v1"
+# ==========================================
+# LOGIN
+# ==========================================
 
-# ==================================================
-# SESSION INIT
-# ==================================================
 if "token" not in st.session_state:
     st.session_state.token = None
 
-# ==================================================
-# LOGIN SYSTEM
-# ==================================================
-if not st.session_state.token:
+if st.session_state.token is None:
 
     st.title("🔐 AI Incident Login")
 
     username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    password = st.text_input(
+        "Password",
+        type="password"
+    )
 
     if st.button("Login"):
 
         try:
+
             res = requests.post(
                 f"{API_URL}/login",
-                json={"username": username, "password": password}
+                json={
+                    "username": username,
+                    "password": password
+                }
             )
 
             data = res.json()
 
             if "access_token" in data:
+
                 st.session_state.token = data["access_token"]
-                st.success("Login successful")
+
+                st.success("Login Successful")
+
                 st.rerun()
+
             else:
-                st.error(data.get("error", "Invalid login"))
+                st.error("Invalid Login")
 
         except Exception as e:
-            st.error(f"Backend error: {e}")
+            st.error(str(e))
 
     st.stop()
-
-
-# ==================================================
-# HEADER
-# ==================================================
-st.title("🚨 AI Incident Monitoring Center")
-st.caption("NASA Sensor + AI Incident Detection System")
 
 headers = {
-    "Authorization": f"Bearer {st.session_state.token}"
+    "Authorization":
+    f"Bearer {st.session_state.token}"
 }
+# ==========================================
+# HEADER
+# ==========================================
 
-# ==================================================
-# LOAD DATASET (FIXED NASA INDEXING)
-# ==================================================
-try:
-    df = pd.read_csv("data/test_FD001.txt", sep=r"\s+", header=None)
-    df = df.dropna().reset_index(drop=True)
+st.title("🚨 AI Incident Monitoring Center")
+st.subheader("🛰 NASA Sensor + AI Incident Detection System")
 
-    SENSOR_START = 2
-    SENSOR_END = 26
+st.markdown("---")
 
-except Exception as e:
-    st.error(f"Dataset error: {e}")
-    st.stop()
+# ==========================================
+# DATASET SELECTOR
+# ==========================================
 
-# ==================================================
-# ENGINE SELECTION
-# ==================================================
-st.subheader("NASA Engine Data")
+dataset_choice = st.selectbox(
+    "📂 Select Dataset",
+    ["Test Dataset", "Training Dataset"]
+)
 
-row_id = st.number_input("Select Engine Row", 0, len(df) - 1, 0)
+if dataset_choice == "Test Dataset":
+    path = "data/test_FD001.txt"
+else:
+    path = "ml/train_FD001.txt"
+
+# ==========================================
+# LOAD DATASET
+# ==========================================
+
+df = pd.read_csv(
+    path,
+    sep=r"\s+",
+    header=None
+)
+
+df = df.dropna().reset_index(drop=True)
+
+st.caption(
+    f"Loaded: {dataset_choice} | Rows: {len(df)}"
+)
+
+# ==========================================
+# NASA FD001 COLUMN MAPPING
+# ==========================================
+
+ENGINE_ID_COL = 0
+CYCLE_COL = 1
+
+SENSOR_START = 2
+SENSOR_END = 26
+
+# ==========================================
+# NASA ENGINE DATA
+# ==========================================
+
+st.markdown("## 🔧 NASA Engine Data")
+
+row_id = st.number_input(
+    "Select Engine Row",
+    min_value=0,
+    max_value=len(df)-1,
+    value=0
+)
 
 row = df.iloc[row_id]
 
-engine_id = int(row.iloc[0])
-cycle = int(row.iloc[1])
+engine_id = int(row.iloc[ENGINE_ID_COL])
+cycle = int(row.iloc[CYCLE_COL])
 
-sensor_values = row.iloc[SENSOR_START:SENSOR_END].astype(float).tolist()
+sensor_values = (
+    row.iloc[SENSOR_START:SENSOR_END]
+    .astype(float)
+    .tolist()
+)
 
-col1, col2 = st.columns(2)
-col1.metric("Engine ID", engine_id)
-col2.metric("Cycle", cycle)
+c1, c2 = st.columns(2)
 
-st.subheader("Sensor Values")
+c1.metric("Engine ID", engine_id)
+c2.metric("Cycle", cycle)
+
+st.markdown("### 📡 Sensor Values")
+
 st.json(sensor_values)
 
-# ==================================================
-# RUN DETECTION
-# ==================================================
-if st.button("🚀 Run Incident Detection"):
+run = st.button(
+    "🚀 Run Incident Detection"
+)
+if run:
 
     try:
+
         res = requests.post(
             f"{API_URL}/detect",
-            json={"sensor_values": sensor_values},
+            json={
+                "engine_id": engine_id,
+                "cycle": cycle,
+                "sensor_values": sensor_values
+            },
             headers=headers
         )
 
+        if res.status_code != 200:
+            st.error(res.text)
+            st.stop()
+
         result = res.json()
 
-        st.success("Detection Complete")
+        st.success("✅ Detection Complete")
 
-        # SAFE KEYS (backend mismatch fix)
-        score = result.get("sensor_score") or result.get("score") or 0
-        prediction = result.get("prediction", 0)
-        severity = result.get("severity", "LOW")
+        st.markdown("## 📊 Detection Results")
 
-        # ==================================================
-        # METRICS
-        # ==================================================
-        c1, c2, c3 = st.columns(3)
+        a, b, c, d = st.columns(4)
 
-        c1.metric("Anomaly Score", round(float(score), 4))
-        c2.metric("Prediction", prediction)
-        c3.metric("Severity", severity)
+        a.metric(
+            "Anomaly Score",
+            round(result["anomaly_score"], 4)
+        )
 
-        # ==================================================
-        # GAUGE (SAFE NORMALIZATION)
-        # ==================================================
-        st.subheader("Anomaly Score Gauge")
+        b.metric(
+            "Prediction",
+            result["prediction"]
+        )
 
-        safe_score = float(score)
+        c.metric(
+            "Severity",
+            result["severity"]
+        )
 
-        # clamp extreme values (IMPORTANT FIX)
-        if safe_score > 1:
-            safe_score = 1.0
-        if safe_score < 0:
-            safe_score = 0.0
+        d.metric(
+            "Confidence",
+            f"{result['confidence']*100:.2f}%"
+        )
+
+        st.markdown("### 📈 Anomaly Score Gauge")
+
+        score = min(
+            max(
+                float(result["anomaly_score"]),
+                0
+            ),
+            1
+        )
 
         fig = go.Figure(
             go.Indicator(
                 mode="gauge+number",
-                value=safe_score,
+                value=score,
                 gauge={
-                    "axis": {"range": [0, 1]},
-                    "bar": {"color": "red"}
+                    "axis": {
+                        "range": [0, 1]
+                    }
                 }
             )
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
 
-        # ==================================================
-        # SEVERITY
-        # ==================================================
-        st.subheader("Severity Status")
+        st.markdown("### 🚨 Severity Status")
 
-        if severity == "CRITICAL":
+        severity = result["severity"]
+
+        if "CRITICAL" in severity:
             st.error(severity)
-        elif severity == "HIGH":
+
+        elif "HIGH" in severity:
             st.warning(severity)
-        elif severity == "MEDIUM":
+
+        elif "MEDIUM" in severity:
             st.info(severity)
+
         else:
             st.success(severity)
 
-        # ==================================================
-        # ROOT CAUSE
-        # ==================================================
-        st.subheader("Root Cause Analysis")
+        st.markdown("### 🧠 Root Cause Analysis")
 
-        root_causes = result.get("root_causes", [])
+        st.warning(
+            result.get(
+                "root_cause",
+                "No root cause available"
+            )
+        )
 
-        if root_causes:
-            for cause in root_causes:
-                st.warning(cause)
+        st.markdown("### 📄 Incident Report")
+
+        st.json({
+            "incident_id":
+            result.get("incident_id", 0),
+
+            "score":
+            result["anomaly_score"],
+
+            "prediction":
+            result["prediction"],
+
+            "severity":
+            result["severity"],
+
+            "status":
+            "OPEN"
+        })
+
+        st.markdown("### 🔔 Alert")
+
+        if "CRITICAL" in severity:
+            st.error(
+                "🚨 CRITICAL INCIDENT DETECTED"
+            )
+
+        elif "HIGH" in severity:
+            st.warning(
+                "⚠️ HIGH RISK DETECTED"
+            )
+
+        elif "MEDIUM" in severity:
+            st.info(
+                "🟡 MEDIUM RISK DETECTED"
+            )
+
         else:
-            st.info("No root cause detected")
-
-        # ==================================================
-        # INCIDENT REPORT
-        # ==================================================
-        st.subheader("Incident Report")
-        st.json(result.get("incident_report", {}))
-
-        # ==================================================
-        # ALERT
-        # ==================================================
-        st.subheader("Alert")
-        st.info(result.get("alert", "No alert"))
+            st.success(
+                "🟢 LOW RISK"
+            )
 
     except Exception as e:
-        st.error(f"Detection failed: {e}")
+        st.error(str(e))
+        st.markdown("---")
 
-# ==================================================
-# INCIDENT HISTORY + LIFECYCLE (FIXED VISUALS)
-# ==================================================
-st.divider()
-st.subheader("📊 Incident History + Lifecycle")
+st.markdown(
+    "## 📊 Incident History + Lifecycle"
+)
 
-try:
-    res = requests.get(f"{API_URL}/incidents", headers=headers)
-    data = res.json()
+# ==========================================
+# INCIDENT HISTORY
+# ==========================================
 
-    if isinstance(data, list) and len(data) > 0:
+st.markdown("### 📜 Incident History")
 
-        history = pd.DataFrame(data)
+history = requests.get(
+    f"{API_URL}/incidents"
+).json()
 
-        history["status"] = history["status"].astype(str)
+if history:
+    st.dataframe(
+        pd.DataFrame(history),
+        use_container_width=True
+    )
 
-        # ==============================
-        # STATUS BADGES
-        # ==============================
-        def badge(x):
-            if x == "OPEN":
-                return "🔴 OPEN"
-            elif x == "ACK":
-                return "🟠 ACK"
-            elif x == "RESOLVED":
-                return "🟢 RESOLVED"
-            return x
+# ==========================================
+# SEVERITY PIE
+# ==========================================
 
-        history["status_ui"] = history["status"].apply(badge)
+st.markdown(
+    "### ⚖️ Severity Distribution"
+)
 
-        st.dataframe(history[["id", "score", "severity", "status_ui"]])
+pie = requests.get(
+    f"{API_URL}/severity-pie"
+).json()
 
-        # ==============================
-        # PIE CHART
-        # ==============================
-        if "severity" in history.columns:
-            fig = px.pie(history, names="severity", title="Severity Distribution")
-            st.plotly_chart(fig, use_container_width=True)
+if pie:
 
-        # ==============================
-        # TREND
-        # ==============================
-        if "score" in history.columns:
-            fig = px.line(history, x="id", y="score", title="Anomaly Score Trend")
-            st.plotly_chart(fig, use_container_width=True)
+    df_pie = pd.DataFrame({
+        "severity": list(pie.keys()),
+        "count": list(pie.values())
+    })
 
-        # ==============================
-        # LIFECYCLE COUNTS
-        # ==============================
-        st.subheader("🔧 Incident Lifecycle Summary")
+    fig = px.pie(
+        df_pie,
+        names="severity",
+        values="count"
+    )
 
-        open_count = len(history[history["status"] == "OPEN"])
-        ack_count = len(history[history["status"] == "ACK"])
-        resolved_count = len(history[history["status"] == "RESOLVED"])
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
 
-        c1, c2, c3 = st.columns(3)
+# ==========================================
+# ANOMALY TREND
+# ==========================================
 
-        c1.metric("🔴 OPEN", open_count)
-        c2.metric("🟠 ACK", ack_count)
-        c3.metric("🟢 RESOLVED", resolved_count)
+st.markdown(
+    "### 📈 Anomaly Trend"
+)
 
-    else:
-        st.warning("No incident history found")
+trend = requests.get(
+    f"{API_URL}/anomaly-trend"
+).json()
 
-except Exception as e:
-    st.warning(f"Could not load history: {e}")
+if trend:
+
+    df_trend = pd.DataFrame(trend)
+
+    fig = px.line(
+        df_trend,
+        x="cycle",
+        y="anomaly_score"
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
+
+# ==========================================
+# LIFECYCLE
+# ==========================================
+
+st.markdown(
+    "### 🔧 Incident Lifecycle Summary"
+)
+
+life = requests.get(
+    f"{API_URL}/incident-lifecycle"
+).json()
+
+if life:
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "🔴 OPEN",
+        life.get("OPEN", 0)
+    )
+
+    c2.metric(
+        "🟠 ACK",
+        life.get("ACK", 0)
+    )
+
+    c3.metric(
+        "🟢 RESOLVED",
+        life.get("RESOLVED", 0)
+    )
