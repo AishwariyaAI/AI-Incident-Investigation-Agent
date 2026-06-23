@@ -170,7 +170,10 @@ AI-Incident-Investigation-Agent/
 <img width="1920" height="1080" alt="Screenshot (337)" src="https://github.com/user-attachments/assets/083dae2b-6495-45d9-af6e-ee32e353ec77" />
 <img width="1920" height="1080" alt="Screenshot (338)" src="https://github.com/user-attachments/assets/f64ebeaa-4f50-47a4-96e8-a57d7c849501" />
 <img width="1920" height="1080" alt="Screenshot (339)" src="https://github.com/user-attachments/assets/d6149a01-39fa-46b5-a8cd-12ee6ef05a5f" />
-<img width="1920" height="1080" alt="Screenshot (341)" src="https://github.com/user-attachments/assets/dbc1a3ca-bd55-431a-a9d7-ef90e2728c98" />
+<img width="1920" height="1080" alt="Screenshot (336)" src="https://github.com/user-attachments/assets/35308b80-6cf0-4b3b-9833-77b2a6164bcf" />
+<img width="1920" height="1080" alt="Screenshot (339)" src="https://github.com/user-attachments/assets/5a7c87dd-e862-4a4d-b458-f8cbcf093d59" />
+<img width="1920" height="1080" alt="Screenshot (334)" src="https://github.com/user-attachments/assets/f674e618-37ca-410c-a111-6fb6f4b1171d" />
+
 
 
 ---
