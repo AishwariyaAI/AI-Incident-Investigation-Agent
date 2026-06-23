@@ -6,5 +6,5 @@ venv/
 .venv/
 
 incidents.db
-model.pkl
+
 incident_report.csv
