@@ -1,9 +1,32 @@
-def generate_alert(severity: str):
+def get_root_cause(
+    severity,
+    confidence,
+    anomaly_score
+):
+
+    prompt = f"""
+Prediction={severity}
+Confidence={confidence}
+Anomaly Score={anomaly_score}
+
+Explain probable root cause.
+"""
+
     if severity == "CRITICAL":
-        return "🚨 CRITICAL INCIDENT DETECTED"
+
+        return (
+            "Severe degradation detected. "
+            "High vibration and temperature "
+            "indicate possible engine failure."
+        )
+
     elif severity == "HIGH":
-        return "⚠️ HIGH RISK INCIDENT"
-    elif severity == "MEDIUM":
-        return "⚡ MEDIUM ALERT"
-    else:
-        return "✅ Normal Activity"
+
+        return (
+            "Sensor drift detected. "
+            "Possible maintenance required."
+        )
+
+    return (
+        "Engine operating normally."
+    )

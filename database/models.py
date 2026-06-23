@@ -1,5 +1,11 @@
 from database.db import Base
-from sqlalchemy import Column, Integer, Float, String
+from sqlalchemy import Column
+from sqlalchemy import Integer
+from sqlalchemy import String
+from sqlalchemy import Float
+from sqlalchemy import DateTime
+
+from datetime import datetime
 
 class Incident(Base):
     __tablename__ = "incidents"
@@ -15,3 +21,7 @@ class Incident(Base):
 
     severity = Column(String)
     status = Column(String)
+    timestamp = Column(
+    DateTime,
+    default=datetime.utcnow
+)

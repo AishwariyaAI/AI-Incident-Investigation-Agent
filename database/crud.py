@@ -35,25 +35,32 @@ def create_incident(
 
     return incident
 
-
 def get_incidents(db):
 
-    incidents = db.query(Incident).all()
+    incidents = db.query(
+        Incident
+    ).all()
 
-    return [
-        {
+    result = []
+
+    for i in incidents:
+
+        result.append({
             "id": i.id,
             "engine_id": i.engine_id,
             "cycle": i.cycle,
+            "prediction": i.prediction,
+            "confidence": i.confidence,
+            "anomaly_score": i.anomaly_score,
             "severity": i.severity,
             "status": i.status,
-            "confidence": i.confidence,
-            "anomaly_score": i.anomaly_score
-        }
-        for i in incidents
-    ]
+            "timestamp": str(i.timestamp)
+        })
 
+    return result
 
+        
+        
 def update_incident_status(
     incident_id,
     status

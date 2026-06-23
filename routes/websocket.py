@@ -1,20 +1,19 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from services.notifier import manager
+from fastapi import APIRouter, WebSocket
 
 router = APIRouter()
 
-@router.websocket("/ws/alerts")
-async def websocket_endpoint(websocket: WebSocket):
+clients = []
 
-    print("🔥 WEBSOCKET ROUTE HIT")
+@router.websocket("/ws")
+async def websocket_endpoint(ws: WebSocket):
 
-    await manager.connect(websocket)
+    await ws.accept()
+
+    clients.append(ws)
 
     try:
         while True:
-            data = await websocket.receive_text()
-            print("Received:", data)
+            await ws.receive_text()
 
-    except WebSocketDisconnect:
-        print("❌ WebSocket disconnected")
-        manager.disconnect(websocket)
+    except:
+        clients.remove(ws)

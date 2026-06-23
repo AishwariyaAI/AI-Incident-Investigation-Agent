@@ -3,6 +3,9 @@ import pandas as pd
 import requests
 import plotly.express as px
 import plotly.graph_objects as go
+from streamlit_autorefresh import st_autorefresh
+
+
 
 API_URL = "http://127.0.0.1:8000/api/v1"
 
@@ -10,6 +13,7 @@ st.set_page_config(
     page_title="AI Incident Monitoring Center",
     layout="wide"
 )
+
 
 # ==========================================
 # LOGIN
@@ -42,6 +46,9 @@ if st.session_state.token is None:
 
             data = res.json()
 
+            st.write("Login Response:")
+            st.write(data)
+
             if "access_token" in data:
 
                 st.session_state.token = data["access_token"]
@@ -58,16 +65,32 @@ if st.session_state.token is None:
 
     st.stop()
 
+if st.sidebar.button("Logout"):
+    st.session_state.token = None
+    st.rerun()
+
 headers = {
     "Authorization":
     f"Bearer {st.session_state.token}"
 }
+st_autorefresh(
+    interval=30000,
+    key="live_refresh"
+)
 # ==========================================
 # HEADER
 # ==========================================
 
 st.title("🚨 AI Incident Monitoring Center")
 st.subheader("🛰 NASA Sensor + AI Incident Detection System")
+st.markdown("## 🔔 Live Alerts")
+
+alerts = requests.get(
+    f"{API_URL}/alerts"
+).json()
+
+for alert in alerts:
+    st.error(alert)
 
 st.markdown("---")
 
@@ -105,8 +128,7 @@ st.caption(
 # NASA FD001 COLUMN MAPPING
 # ==========================================
 
-ENGINE_ID_COL = 0
-CYCLE_COL = 1
+
 
 SENSOR_START = 2
 SENSOR_END = 26
@@ -116,24 +138,39 @@ SENSOR_END = 26
 # ==========================================
 
 st.markdown("## 🔧 NASA Engine Data")
-
-row_id = st.number_input(
-    "Select Engine Row",
-    min_value=0,
-    max_value=len(df)-1,
-    value=0
+live_mode = st.checkbox(
+    "🔴 Live Monitoring Mode"
 )
 
-row = df.iloc[row_id]
+if live_mode:
 
-engine_id = int(row.iloc[ENGINE_ID_COL])
-cycle = int(row.iloc[CYCLE_COL])
+    sensor = requests.get(
+        f"{API_URL}/simulate"
+    ).json()
 
-sensor_values = (
-    row.iloc[SENSOR_START:SENSOR_END]
-    .astype(float)
-    .tolist()
-)
+    engine_id = sensor["engine_id"]
+    cycle = sensor["cycle"]
+    sensor_values = sensor["sensor_values"]
+
+else:
+
+    row_id = st.number_input(
+        "Select Engine Row",
+        min_value=0,
+        max_value=len(df)-1,
+        value=0
+    )
+
+    row = df.iloc[row_id]
+
+    engine_id = int(row.iloc[0])
+    cycle = int(row.iloc[1])
+
+    sensor_values = (
+        row.iloc[SENSOR_START:SENSOR_END]
+        .astype(float)
+        .tolist()
+    )
 
 c1, c2 = st.columns(2)
 
@@ -143,172 +180,206 @@ c2.metric("Cycle", cycle)
 st.markdown("### 📡 Sensor Values")
 
 st.json(sensor_values)
+st.write("Sensor Count:", len(sensor_values))
 
-run = st.button(
-    "🚀 Run Incident Detection"
-)
+if "last_result" not in st.session_state:
+    st.session_state.last_result = None
+run = st.button("🚀 Run Incident Detection")
+
 if run:
 
     try:
 
-        res = requests.post(
+        payload = {
+            "engine_id": engine_id,
+            "cycle": cycle,
+            "sensor_values": sensor_values
+        }
+
+        response = requests.post(
             f"{API_URL}/detect",
-            json={
-                "engine_id": engine_id,
-                "cycle": cycle,
-                "sensor_values": sensor_values
-            },
+            json=payload,
             headers=headers
         )
+        response.raise_for_status()
+        result = response.json()
 
-        if res.status_code != 200:
-            st.error(res.text)
-            st.stop()
-
-        result = res.json()
-
-        st.success("✅ Detection Complete")
-
-        st.markdown("## 📊 Detection Results")
-
-        a, b, c, d = st.columns(4)
-
-        a.metric(
-            "Anomaly Score",
-            round(result["anomaly_score"], 4)
-        )
-
-        b.metric(
-            "Prediction",
-            result["prediction"]
-        )
-
-        c.metric(
-            "Severity",
-            result["severity"]
-        )
-
-        d.metric(
-            "Confidence",
-            f"{result['confidence']*100:.2f}%"
-        )
-
-        st.markdown("### 📈 Anomaly Score Gauge")
-
-        score = min(
-            max(
-                float(result["anomaly_score"]),
-                0
-            ),
-            1
-        )
-
-        fig = go.Figure(
-            go.Indicator(
-                mode="gauge+number",
-                value=score,
-                gauge={
-                    "axis": {
-                        "range": [0, 1]
-                    }
-                }
-            )
-        )
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-
-        st.markdown("### 🚨 Severity Status")
-
-        severity = result["severity"]
-
-        if "CRITICAL" in severity:
-            st.error(severity)
-
-        elif "HIGH" in severity:
-            st.warning(severity)
-
-        elif "MEDIUM" in severity:
-            st.info(severity)
-
-        else:
-            st.success(severity)
-
-        st.markdown("### 🧠 Root Cause Analysis")
-
-        st.warning(
-            result.get(
-                "root_cause",
-                "No root cause available"
-            )
-        )
-
-        st.markdown("### 📄 Incident Report")
-
-        st.json({
-            "incident_id":
-            result.get("incident_id", 0),
-
-            "score":
-            result["anomaly_score"],
-
-            "prediction":
-            result["prediction"],
-
-            "severity":
-            result["severity"],
-
-            "status":
-            "OPEN"
-        })
-
-        st.markdown("### 🔔 Alert")
-
-        if "CRITICAL" in severity:
-            st.error(
-                "🚨 CRITICAL INCIDENT DETECTED"
-            )
-
-        elif "HIGH" in severity:
-            st.warning(
-                "⚠️ HIGH RISK DETECTED"
-            )
-
-        elif "MEDIUM" in severity:
-            st.info(
-                "🟡 MEDIUM RISK DETECTED"
-            )
-
-        else:
-            st.success(
-                "🟢 LOW RISK"
-            )
+        st.session_state.last_result = result
 
     except Exception as e:
-        st.error(str(e))
-        st.markdown("---")
+        st.error(f"Detection Error: {e}")
 
+# ==========================================
+# SHOW LAST RESULT
+# ==========================================
+
+if st.session_state.last_result:
+
+    result = st.session_state.last_result
+
+    st.success("✅ Detection Complete")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric(
+        "Prediction",
+        result.get("prediction", "N/A")
+    )
+
+    col2.metric(
+        "Confidence",
+        f"{result.get('confidence',0)*100:.2f}%"
+    )
+
+    col3.metric(
+        "Severity",
+        result.get("severity", "N/A")
+    )
+
+    col4.metric(
+        "Anomaly Score",
+        round(result.get("anomaly_score", 0), 4)
+    )
+
+    severity = result.get("severity", "")
+
+    st.markdown("## 📊 Detection Results")
+
+    if "CRITICAL" in severity:
+        st.error("🚨 ENGINE FAILURE PREDICTED")
+
+    elif "HIGH" in severity:
+        st.warning("⚠️ HIGH RISK ENGINE")
+
+    elif "MEDIUM" in severity:
+        st.info("🟡 MEDIUM RISK ENGINE")
+
+    else:
+        st.success("🟢 ENGINE HEALTHY")
+
+    st.markdown("### 📈 Anomaly Score Gauge")
+
+    score = min(
+        max(
+            float(result.get("anomaly_score", 0)),
+            0
+        ),
+        1
+    )
+
+    fig = go.Figure(
+        go.Indicator(
+            mode="gauge+number",
+            value=score,
+            gauge={
+                "axis": {
+                    "range": [0, 1]
+                }
+            }
+        )
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
+
+    st.markdown("### 🔍 Root Cause Analysis")
+
+    st.info(
+        result.get(
+            "root_cause",
+            "No root cause available"
+        )
+    )
+
+    st.markdown("### 🤖 AI Investigation Report")
+
+    st.info(
+        result.get(
+            "ai_report",
+            "No report available"
+        )
+    )
+
+    st.markdown("### 📄 Incident Summary")
+
+    st.json({
+        "incident_id":
+        result.get("incident_id", 0),
+
+        "prediction":
+        result.get("prediction"),
+
+        "severity":
+        result.get("severity"),
+
+        "anomaly_score":
+        result.get("anomaly_score"),
+
+        "confidence":
+        result.get("confidence")
+    })
+
+    st.markdown("### 🔔 Alert Status")
+
+    if "CRITICAL" in severity:
+        st.error("🚨 CRITICAL INCIDENT DETECTED")
+
+    elif "HIGH" in severity:
+        st.warning("⚠️ HIGH RISK DETECTED")
+
+    elif "MEDIUM" in severity:
+        st.info("🟡 MEDIUM RISK DETECTED")
+
+    else:
+        st.success("🟢 LOW RISK")
+
+    st.markdown("---")
+
+
+
+st.markdown("---")
 st.markdown(
     "## 📊 Incident History + Lifecycle"
 )
-
-# ==========================================
-# INCIDENT HISTORY
-# ==========================================
-
-st.markdown("### 📜 Incident History")
-
-history = requests.get(
+incidents = requests.get(
     f"{API_URL}/incidents"
 ).json()
 
-if history:
-    st.dataframe(
-        pd.DataFrame(history),
-        use_container_width=True
-    )
+incidents_df = pd.DataFrame(incidents)
+
+severity_filter = st.selectbox(
+    "Filter Severity",
+    ["ALL", "LOW", "MEDIUM", "HIGH", "CRITICAL"],
+    key="severity_filter"
+)
+
+search_id = st.text_input(
+    "Search Incident ID",
+    key="search_id"
+)
+
+if severity_filter != "ALL":
+    incidents_df = incidents_df[
+        incidents_df["severity"].str.contains(
+            severity_filter,
+            na=False
+        )
+    ]
+
+if search_id:
+
+    try:
+        incidents_df = incidents_df[
+            incidents_df["id"] == int(search_id)
+        ]
+    except:
+        st.warning("Enter numeric Incident ID")
+st.dataframe(
+    incidents_df,
+    use_container_width=True
+)
 
 # ==========================================
 # SEVERITY PIE
@@ -375,25 +446,144 @@ st.markdown(
     "### 🔧 Incident Lifecycle Summary"
 )
 
-life = requests.get(
+st.markdown("## 🔄 Incident Lifecycle")
+
+lifecycle = requests.get(
     f"{API_URL}/incident-lifecycle"
 ).json()
 
-if life:
+col1, col2, col3 = st.columns(3)
 
-    c1, c2, c3 = st.columns(3)
+col1.metric("OPEN", lifecycle["OPEN"])
+col2.metric("ACK", lifecycle["ACK"])
+col3.metric("RESOLVED", lifecycle["RESOLVED"])
+st.markdown("### ⏱ Incident Timeline")
 
-    c1.metric(
-        "🔴 OPEN",
-        life.get("OPEN", 0)
+timeline = requests.get(
+    f"{API_URL}/incident-timeline"
+).json()
+
+if timeline:
+
+    st.dataframe(
+        pd.DataFrame(timeline),
+        use_container_width=True
     )
 
-    c2.metric(
-        "🟠 ACK",
-        life.get("ACK", 0)
+incidents = requests.get(
+    f"{API_URL}/incidents"
+).json()
+
+incidents_df = pd.DataFrame(incidents)
+
+total = len(incidents_df)
+
+open_incidents = len(
+    incidents_df[
+        incidents_df["status"] == "OPEN"
+    ]
+)
+
+resolved_count = len(
+    incidents_df[
+        incidents_df["status"] == "RESOLVED"
+    ]
+)
+
+critical_count = len(
+    incidents_df[
+        incidents_df["severity"]
+        .str.contains("CRITICAL", na=False)
+    ]
+)
+
+st.markdown("## 📊 System Overview")
+
+c1, c2, c3, c4 = st.columns(4)
+
+c1.metric(
+    "Total Incidents",
+    total
+)
+
+c2.metric(
+    "Critical",
+    critical_count
+)
+
+c3.metric(
+    "Open",
+    open_incidents
+)
+
+c4.metric(
+    "Resolved",
+    resolved_count
+)
+
+failure_rate = (
+    critical_count
+    / max(len(incidents_df), 1)
+) * 100
+
+st.metric(
+    "Failure Rate %",
+    round(failure_rate, 2)
+)
+
+st.markdown("## 🚂 Engine Health")
+
+health = requests.get(
+    f"{API_URL}/engine-health-map"
+).json()
+health_df = pd.DataFrame(health)
+
+
+st.dataframe(
+    pd.DataFrame(health),
+    use_container_width=True
+)
+
+
+
+
+report = requests.get(
+    f"{API_URL}/report"
+)
+
+st.download_button(
+    "⬇ Download Incident Report",
+    report.content,
+    file_name="incident_report.csv",
+    mime="text/csv"
+)
+
+incident_id = st.number_input(
+    "Incident ID",
+    min_value=1,
+    step=1,
+    value=1
+)
+
+
+if st.button("🟠 Acknowledge Incident"):
+
+    response = requests.patch(
+        f"{API_URL}/incident/{incident_id}/ack"
     )
 
-    c3.metric(
-        "🟢 RESOLVED",
-        life.get("RESOLVED", 0)
+    if response.status_code == 200:
+        st.success("Incident Acknowledged")
+    else:
+        st.error(response.text)
+
+if st.button("✅ Resolve Incident"):
+
+    response = requests.patch(
+        f"{API_URL}/incident/{incident_id}/resolve"
     )
+
+    if response.status_code == 200:
+        st.success("Incident Resolved")
+    else:
+        st.error(response.text)

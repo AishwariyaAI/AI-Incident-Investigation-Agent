@@ -1,35 +1,46 @@
+# routes/status.py
+
 from fastapi import APIRouter
-
-from schemas.status import StatusUpdate
-
-from database.crud import (
-    update_incident_status
-)
+from database.db import SessionLocal
+from database.models import Incident
 
 router = APIRouter()
 
+@router.patch("/incident/{id}/ack")
+def ack(id: int):
 
-@router.patch(
-    "/incidents/{incident_id}"
-)
-def update_status(
-    incident_id: int,
-    data: StatusUpdate
-):
+    db = SessionLocal()
 
-    incident = update_incident_status(
-        incident_id,
-        data.status
-    )
+    incident = db.query(Incident).filter(
+        Incident.id == id
+    ).first()
 
     if not incident:
+        return {"error": "Incident not found"}
 
-        return {
-            "error": "Incident not found"
-        }
+    incident.status = "ACK"
 
-    return {
-        "message": "Status updated",
-        "id": incident.id,
-        "status": incident.status
-    }
+    db.commit()
+    db.close()
+
+    return {"message": "ACKNOWLEDGED"}
+
+
+@router.patch("/incident/{id}/resolve")
+def resolve(id: int):
+
+    db = SessionLocal()
+
+    incident = db.query(Incident).filter(
+        Incident.id == id
+    ).first()
+
+    if not incident:
+        return {"error": "Incident not found"}
+
+    incident.status = "RESOLVED"
+
+    db.commit()
+    db.close()
+
+    return {"message": "RESOLVED"}

@@ -71,15 +71,38 @@ def incident_lifecycle():
 
         status = incident.status
 
-        if status == "OPEN":
-            result["OPEN"] += 1
-
-        elif status == "ACK":
-            result["ACK"] += 1
-
-        elif status == "RESOLVED":
-            result["RESOLVED"] += 1
+        if status in result:
+            result[status] += 1
 
     db.close()
 
     return result
+
+@router.get("/incident-timeline")
+def incident_timeline():
+
+    db = SessionLocal()
+
+    incidents = (
+        db.query(Incident)
+        .order_by(Incident.id.desc())
+        .limit(20)
+        .all()
+    )
+
+    result = []
+
+    for i in incidents:
+
+        result.append({
+            "incident_id": i.id,
+            "status": i.status,
+            "severity": i.severity,
+            "timestamp": str(i.timestamp)
+        })
+
+    db.close()
+
+    return result
+
+    
