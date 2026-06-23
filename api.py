@@ -15,6 +15,21 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="AI Incident Investigation Agent",
+    description="""
+🚨 AI-powered Predictive Maintenance and Incident Investigation Platform
+
+Features:
+- Real-time NASA FD001 sensor monitoring
+- Machine Learning anomaly detection
+- Incident severity classification
+- Root cause analysis
+- AI-generated investigation reports
+- Incident lifecycle management
+- Analytics and health monitoring dashboards
+
+This platform helps identify potential equipment failures before they occur,
+allowing proactive maintenance and reducing operational downtime.
+""",
     version="1.0.0"
 )
 
