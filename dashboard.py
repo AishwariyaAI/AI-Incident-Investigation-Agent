@@ -7,7 +7,7 @@ from streamlit_autorefresh import st_autorefresh
 
 
 
-API_URL = "http://127.0.0.1:8000/api/v1"
+API_URL = "https://ai-incident-investigation-agent.onrender.com/api/v1"
 
 st.set_page_config(
     page_title="AI Incident Monitoring Center",
