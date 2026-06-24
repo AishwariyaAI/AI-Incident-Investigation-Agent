@@ -9,8 +9,23 @@ The AI Incident Investigation Agent is an intelligent monitoring system that ana
 The system helps engineering teams identify failures before they occur and supports proactive maintenance decisions.
 
 ---
+🔑 DEMO LOGIN CREDENTIALS
+
+Username: admin
+
+Password: admin123
+
+⚠️ Required to access the live dashboard.
+
+Quick Access
+1.Open the Dashboard link
+2.Enter the demo credentials above
+3.Explore incidents, analytics, and root cause analysis
 
 ## 🚀 Live Deployment
+
+### Dashboard
+
 
 ### API Documentation (Swagger)
 
