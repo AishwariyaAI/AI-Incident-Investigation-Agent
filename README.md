@@ -22,10 +22,22 @@ Quick Access
 2.Enter the demo credentials above
 3.Explore incidents, analytics, and root cause analysis
 
+## ⚠️ Important Authentication Steps
+
+Before accessing the AI Incident Monitoring Dashboard, you must authenticate with the backend API.
+
+### Step 1: Open Swagger Documentation
+
+https://ai-incident-investigation-agent.onrender.com/docs
+
+### Step 2: Login
+
+Use the demo credentials:
+
+Username: admin
+Password: admin123
+
 ## 🚀 Live Deployment
-
-### Dashboard
-
 
 ### API Documentation (Swagger)
 
@@ -34,6 +46,10 @@ https://ai-incident-investigation-agent.onrender.com/docs
 ### Health Endpoint
 
 https://ai-incident-investigation-agent.onrender.com/api/v1/health
+
+### Dashboard
+
+https://ai-incident-dashboard-3jt2.onrender.com
 
 ---
 
